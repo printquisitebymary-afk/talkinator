@@ -133,13 +133,12 @@ function SearchScreen({ onNavigate, showSettings, setShowSettings }) {
                   React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 2, d: 'M20 12H4' })
                 )
               ),
-              React.createElement('div', { className: 'flex justify-center items-end flex-1', style: { gap: clues.length > 6 ? '2px' : clues.length > 4 ? '4px' : '6px' } },
+              React.createElement('div', { className: 'flex justify-center items-center flex-1', style: { gap: clues.length > 6 ? '3px' : clues.length > 4 ? '5px' : '8px' } },
                 clues.map((clue, index) =>
                   React.createElement('div', { 
                     key: index, 
-                    className: 'flex flex-col items-center cursor-pointer', 
-                    onClick: () => setSelectedClueIndex(index),
-                    style: { gap: clues.length > 6 ? '1px' : '2px' }
+                    className: 'relative flex flex-col items-center',
+                    style: { width: clues.length > 6 ? '16px' : clues.length > 4 ? '18px' : '20px' }
                   },
                     React.createElement('input', { 
                       type: 'text', 
@@ -150,19 +149,21 @@ function SearchScreen({ onNavigate, showSettings, setShowSettings }) {
                         newClues[index] = e.target.value.slice(-1);
                         setClues(newClues);
                       },
-                      className: 'bg-transparent border-none outline-none text-center [font-family:\'Geist_Mono\',monospace] text-[#ffa06b]',
+                      className: 'absolute inset-0 bg-transparent border-none outline-none text-center [font-family:\'Geist_Mono\',monospace] text-[#ffa06b] z-10',
                       style: { 
-                        width: clues.length > 6 ? '12px' : clues.length > 4 ? '14px' : '16px',
-                        height: clues.length > 6 ? '12px' : clues.length > 4 ? '14px' : '16px',
-                        fontSize: clues.length > 6 ? '10px' : clues.length > 4 ? '11px' : '12px'
+                        fontSize: clues.length > 6 ? '10px' : clues.length > 4 ? '11px' : '12px',
+                        height: '20px',
+                        lineHeight: '20px'
                       },
-                      placeholder: '_'
+                      placeholder: '_',
+                      onClick: (e) => e.stopPropagation()
                     }),
                     React.createElement('div', { 
                       className: 'bg-[#f6dfdd]',
                       style: { 
-                        width: clues.length > 6 ? '4px' : clues.length > 4 ? '5px' : '5mm',
-                        height: '1px'
+                        width: '100%',
+                        height: '1px',
+                        marginTop: '18px'
                       }
                     })
                   )
