@@ -1,9 +1,9 @@
 const { useState, useEffect, useRef } = React;
 
-// TALKINATOR Logo Images (using inline SVG placeholders - replace with actual images)
-const HEADER_WORDMARK = 'assets/header_wordmark.png'; + btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40"><text x="0" y="28" font-family="monospace" font-size="20" font-weight="bold" fill="#f6dfdd">TALKINATOR</text></svg>');
-const START_WORDMARK = 'assets/header_wordmark.png'; + btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 60"><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="32" font-weight="bold" fill="#f6dfdd">TALKINATOR</text></svg>');
-const BLOCK_BG = 'assets/image.png'; + btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200"><rect width="400" height="200" fill="#1a1a1a"/><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="14" fill="#333">Background Pattern</text></svg>');
+// TALKINATOR Logo Images
+const HEADER_WORDMARK = 'assets/header_wordmark.png';
+const START_WORDMARK = 'assets/header_wordmark.png';
+const BLOCK_BG = 'assets/image.png';
 
 // Front/Landing Page Component
 function FrontPage({ onNavigate }) {
@@ -221,6 +221,7 @@ function ResultsScreen({ onNavigate, showSettings, setShowSettings, onSaveWord }
   const [dragStart, setDragStart] = useState(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [currentSwipe, setCurrentSwipe] = useState(null);
+  const [recentlyAdded, setRecentlyAdded] = useState([]);
 
   const handleMouseDown = (e, id) => {
     setDragStart({ x: e.clientX, y: e.clientY, id });
@@ -231,28 +232,60 @@ function ResultsScreen({ onNavigate, showSettings, setShowSettings, onSaveWord }
     if (dragStart) {
       const offsetX = e.clientX - dragStart.x;
       setDragOffset({ x: offsetX, y: 0 });
+      
+      // Show background when dragged halfway (50% of card width)
+      if (Math.abs(offsetX) > 75 && !currentSwipe) {
+        if (offsetX > 0) {
+          setCurrentSwipe({ id: dragStart.id, type: 'lost' });
+        } else {
+          setCurrentSwipe({ id: dragStart.id, type: 'found' });
+        }
+      } else if (Math.abs(offsetX) < 50 && currentSwipe?.id === dragStart.id) {
+        setCurrentSwipe(null);
+      }
     }
   };
 
   const handleMouseUp = () => {
     if (dragStart) {
-      if (dragOffset.x > 100) {
-        // Swiped RIGHT = LOST (orange background on left)
+      if (dragOffset.x > 75 && !currentSwipe) {
+        // Swiped RIGHT = LOST
         setCurrentSwipe({ id: dragStart.id, type: 'lost' });
         setTimeout(() => {
           setSuggestions(suggestions.filter(s => s.id !== dragStart.id));
           setCurrentSwipe(null);
+          setDragStart(null);
+          setDragOffset({ x: 0, y: 0 });
         }, 300);
-      } else if (dragOffset.x < -100) {
-        // Swiped LEFT = FOUND (pink background on left)
+      } else if (dragOffset.x < -75 && !currentSwipe) {
+        // Swiped LEFT = FOUND
         setCurrentSwipe({ id: dragStart.id, type: 'found' });
         onSaveWord(dragStart.id);
         setTimeout(() => {
           setCurrentSwipe(null);
+          setDragStart(null);
+          setDragOffset({ x: 0, y: 0 });
         }, 300);
+      } else if (currentSwipe) {
+        // Already triggered halfway, complete the action
+        if (currentSwipe.type === 'lost') {
+          setTimeout(() => {
+            setSuggestions(suggestions.filter(s => s.id !== dragStart.id));
+            setCurrentSwipe(null);
+            setDragStart(null);
+            setDragOffset({ x: 0, y: 0 });
+          }, 300);
+        } else if (currentSwipe.type === 'found') {
+          setTimeout(() => {
+            setCurrentSwipe(null);
+            setDragStart(null);
+            setDragOffset({ x: 0, y: 0 });
+          }, 300);
+        }
+      } else {
+        setDragStart(null);
+        setDragOffset({ x: 0, y: 0 });
       }
-      setDragStart(null);
-      setDragOffset({ x: 0, y: 0 });
     }
   };
 
@@ -296,12 +329,15 @@ function ResultsScreen({ onNavigate, showSettings, setShowSettings, onSaveWord }
             },
               // Fixed background layer (FOUND/LOST) - stays in place behind card
               React.createElement('div', { 
-                className: 'absolute inset-0 rounded-xl flex items-center justify-start px-6',
+                className: 'absolute inset-0 rounded-xl flex items-center justify-between px-6',
                 style: { 
                   backgroundColor: isLost ? '#ffa06b' : (isFound ? '#f049cf' : 'transparent'),
                   zIndex: 0
                 }
               },
+                (isFound || isLost) && React.createElement('span', { 
+                  className: 'font-[\'Geist_Mono\'] font-bold uppercase text-black text-2xl'
+                }, isFound ? 'FOUND' : 'LOST'),
                 (isFound || isLost) && React.createElement('span', { 
                   className: 'font-[\'Geist_Mono\'] font-bold uppercase text-black text-2xl'
                 }, isFound ? 'FOUND' : 'LOST')
@@ -453,15 +489,61 @@ function RecentScreen({ onNavigate, showSettings, setShowSettings }) {
   );
 }
 
+// Language Toggle Modal Component
+function LanguageToggleModal({ onClose, onContinue }) {
+  return React.createElement('div', { className: 'fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4' },
+    React.createElement('div', { className: 'rounded-[28px] bg-black border-[#f049cf] border-2 border-solid p-5 flex flex-col gap-4 max-w-sm w-full' },
+      React.createElement('h2', { className: '[font-family:\'Geist_Mono\',monospace] font-bold uppercase text-[#f6dfdd] text-xl leading-7' }, 'CHANGE TRANSLATION LANGUAGE'),
+      React.createElement('div', { className: 'rounded-[18px] bg-black border-[#f049cf] border-2 border-dashed flex p-4 flex-col gap-2' },
+        React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] lowercase text-[#ffa06b] text-sm leading-5' }, 'auto-detected input language: hindi')
+      ),
+      React.createElement('div', { className: 'flex flex-col gap-2' },
+        React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#f6dfdd] text-sm leading-5' }, 'TRANSLATE TO'),
+        React.createElement('div', { className: 'rounded-[18px] bg-black border-[#f049cf] border-2 border-solid flex px-4 py-3 justify-between items-center' },
+          React.createElement('div', { className: 'flex items-center gap-2' },
+            React.createElement('span', { className: 'text-[#ffa06b] text-lg' }, '🌐'),
+            React.createElement('span', { className: '[font-family:\'Geist_Mono\',monospace] text-[#f6dfdd] text-sm' }, 'ENGLISH')
+          ),
+          React.createElement('svg', { className: 'size-4 text-[#f6dfdd]', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+            React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 2, d: 'M19 9l-7 7-7-7' })
+          )
+        )
+      ),
+      React.createElement('button', { onClick: onContinue, className: '[font-family:\'Geist_Mono\',monospace] font-normal text-center align-baseline uppercase rounded-full bg-[#f049cf] text-black text-sm leading-5 tracking-normal h-11' }, 'CONTINUE')
+    )
+  );
+}
+
 // Translator Screen Component
 function TranslatorScreen({ onNavigate, showSettings, setShowSettings }) {
   const [showTypingModal, setShowTypingModal] = useState(false);
   const [showRecordingModal, setShowRecordingModal] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [uploadedFile, setUploadedFile] = useState(null);
+  const [translatedText, setTranslatedText] = useState('');
+  const [extractedText, setExtractedText] = useState('');
+  const [inputText, setInputText] = useState('');
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
-    if (file) setUploadedFile(file);
+    if (file) {
+      setUploadedFile(file);
+      setExtractedText('नमस्ते, यह दस्तावेज़ आपकी बैठक के लिए महत्वपूर्ण जानकारी रखता है।');
+    }
+  };
+
+  const handleTranslate = () => {
+    // Simulate translation
+    if (inputText.trim()) {
+      setTranslatedText('i hope you will like my app.');
+    } else if (extractedText) {
+      setTranslatedText('hello, this document contains important information for your meeting.');
+    }
+  };
+
+  const handleTypingTranslate = () => {
+    setTranslatedText('i hope you will like my app.');
+    setShowTypingModal(false);
   };
 
   return React.createElement('div', { className: 'bg-neutral-950 text-neutral-50 w-full h-fit' },
@@ -480,34 +562,86 @@ function TranslatorScreen({ onNavigate, showSettings, setShowSettings }) {
           ),
           React.createElement('div', { className: 'rounded-[28px] bg-black border-[#f049cf] border-2 border-solid flex p-5 flex-col gap-3' },
             React.createElement('div', { className: 'flex flex-row justify-between items-center gap-2' },
-              React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#f6dfdd] text-lg leading-6' }, 'TYPE IT OUT')
+              React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#f6dfdd] text-lg leading-6' }, 'TYPE IT OUT'),
+              React.createElement('button', { onClick: () => setShowLanguageModal(true), className: 'shrink-0 rounded-full bg-black border-[#ffa06b] border-2 border-solid flex px-3 py-1.5 items-center gap-1.5' },
+                React.createElement('span', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#f6dfdd] text-[11px]' }, 'HIN'),
+                React.createElement('svg', { className: 'size-3 text-[#ffa06b]', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+                  React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 2, d: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4' })
+                ),
+                React.createElement('span', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#f6dfdd] text-[11px]' }, 'ENG')
+              )
             ),
-            React.createElement('textarea', { placeholder: 'enter text to translate', className: '[font-family:\'Geist_Mono\',monospace] min-h-20 resize-none outline-none lowercase rounded-[18px] bg-black text-[#f6dfdd] text-sm leading-5 border-[#f049cf] border-2 border-solid p-3 w-full', defaultValue: '' }),
-            React.createElement('button', { onClick: () => setShowTypingModal(true), className: '[font-family:\'Geist_Mono\',monospace] font-normal text-center align-baseline uppercase rounded-full bg-[#f049cf] text-black text-sm leading-5 tracking-normal h-11' }, 'TRANSLATE')
+            React.createElement('textarea', { 
+              placeholder: 'enter text to translate', 
+              value: inputText,
+              onChange: (e) => setInputText(e.target.value),
+              className: '[font-family:\'Geist_Mono\',monospace] min-h-20 resize-none outline-none lowercase rounded-[18px] bg-black text-[#f6dfdd] text-sm leading-5 border-[#f049cf] border-2 border-solid p-3 w-full' }
+            ),
+            React.createElement('button', { onClick: handleTranslate, className: '[font-family:\'Geist_Mono\',monospace] font-normal text-center align-baseline uppercase rounded-full bg-[#f049cf] text-black text-sm leading-5 tracking-normal h-11' }, 'TRANSLATE')
+          ),
+          translatedText && !showTypingModal && React.createElement('div', { className: 'rounded-[28px] bg-black border-[#f049cf] border-2 border-solid flex p-5 flex-col gap-3' },
+            React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#ffa06b] text-xs leading-4' }, 'TRANSLATED TEXT'),
+            React.createElement('p', { className: '[font-family:\'Geist_Mono\',monospace] lowercase text-[#f6dfdd] text-base leading-6' }, translatedText)
           ),
           React.createElement('div', { className: 'rounded-[28px] bg-black border-[#f049cf] border-2 border-solid flex p-5 flex-col gap-3' },
             React.createElement('div', { className: 'flex flex-row justify-between items-start gap-2' },
               React.createElement('div', { className: 'flex flex-col gap-1' },
                 React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#f6dfdd] text-lg leading-6' }, 'UPLOAD A FILE'),
                 React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] lowercase text-[#b8a8a7] text-xs leading-4' }, 'png, jpg, pdf, docx')
+              ),
+              React.createElement('button', { onClick: () => setShowLanguageModal(true), className: 'shrink-0 rounded-full bg-black border-[#ffa06b] border-2 border-solid flex px-3 py-1.5 items-center gap-1.5' },
+                React.createElement('span', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#f6dfdd] text-[11px]' }, 'HIN'),
+                React.createElement('svg', { className: 'size-3 text-[#ffa06b]', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+                  React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 2, d: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4' })
+                ),
+                React.createElement('span', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#f6dfdd] text-[11px]' }, 'ENG')
               )
             ),
             React.createElement('div', { className: 'rounded-[18px] bg-black border-[#f049cf] border-2 border-dashed flex p-6 flex-col justify-center items-center gap-2' },
-              React.createElement('svg', { className: 'size-8 text-[#ffa06b]', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
-                React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 2, d: 'M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12' })
-              ),
-              React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] text-center lowercase text-[#b8a8a7] text-xs leading-4' }, uploadedFile ? uploadedFile.name : 'drag & drop or tap to browse'),
-              uploadedFile && React.createElement('button', { onClick: () => setUploadedFile(null), className: 'text-[#ffa06b] text-xs uppercase' }, 'Remove')
+              React.createElement('input', { type: 'file', accept: '.png,.jpg,.jpeg,.pdf,.docx', onChange: handleFileUpload, className: 'hidden', id: 'file-upload' }),
+              React.createElement('label', { htmlFor: 'file-upload', className: 'cursor-pointer flex flex-col items-center gap-2' },
+                React.createElement('svg', { className: 'size-8 text-[#ffa06b]', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+                  React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 2, d: 'M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12' })
+                ),
+                React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] text-center lowercase text-[#b8a8a7] text-xs leading-4' }, uploadedFile ? uploadedFile.name : 'drag & drop or tap to browse')
+              )
             ),
-            React.createElement('input', { type: 'file', accept: '.png,.jpg,.jpeg,.pdf,.docx', onChange: handleFileUpload, className: 'hidden', id: 'file-upload' }),
-            React.createElement('label', { htmlFor: 'file-upload' },
-              React.createElement('button', { onClick: () => document.getElementById('file-upload').click(), className: '[font-family:\'Geist_Mono\',monospace] font-normal text-center align-baseline uppercase rounded-full bg-[#f049cf] text-black text-sm leading-5 tracking-normal h-11 w-full' }, 'EXTRACT & TRANSLATE')
-            )
+            uploadedFile && React.createElement('div', { className: 'rounded-[18px] bg-black border-[#f049cf] border-2 border-solid p-3 flex items-center gap-3' },
+              React.createElement('svg', { className: 'size-6 text-[#ffa06b]', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+                React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 2, d: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' })
+              ),
+              React.createElement('div', { className: 'flex-1' },
+                React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] text-[#f6dfdd] text-sm' }, uploadedFile.name),
+                React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] text-[#b8a8a7] text-xs' }, '2.4 mb uploaded')
+              ),
+              React.createElement('button', { onClick: () => setUploadedFile(null), className: 'size-8 rounded-full bg-black border-[#f049cf] border-2 border-solid flex justify-center items-center' },
+                React.createElement('svg', { className: 'size-4 text-[#ffa06b]', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+                  React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 2, d: 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' })
+                )
+              )
+            ),
+            extractedText && React.createElement('div', { className: 'rounded-[18px] bg-black border-[#f049cf] border-2 border-solid p-3' },
+              React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#ffa06b] text-xs leading-4 mb-2' }, 'EXTRACTED TEXT'),
+              React.createElement('p', { className: '[font-family:\'Geist_Mono\',monospace] lowercase text-[#f6dfdd] text-sm leading-5' }, extractedText)
+            ),
+            translatedText && React.createElement('div', { className: 'rounded-[18px] bg-black border-[#f049cf] border-2 border-solid p-3' },
+              React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#ffa06b] text-xs leading-4 mb-2' }, 'TRANSLATED TEXT'),
+              React.createElement('p', { className: '[font-family:\'Geist_Mono\',monospace] lowercase text-[#f6dfdd] text-sm leading-5' }, translatedText)
+            ),
+            React.createElement('button', { onClick: handleTranslate, className: '[font-family:\'Geist_Mono\',monospace] font-normal text-center align-baseline uppercase rounded-full bg-[#f049cf] text-black text-sm leading-5 tracking-normal h-11 w-full' }, 'EXTRACT & TRANSLATE')
           ),
           React.createElement('div', { className: 'rounded-[28px] bg-black border-[#f049cf] border-2 border-solid flex p-5 flex-col gap-3' },
             React.createElement('div', { className: 'flex flex-row justify-between items-start gap-2' },
               React.createElement('div', { className: 'flex flex-col gap-1' },
-                React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#f6dfdd] text-lg leading-6' }, 'RECORD YOUR VOICE')
+                React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#f6dfdd] text-lg leading-6' }, 'RECORD YOUR VOICE'),
+                React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] lowercase text-[#b8a8a7] text-xs leading-4' }, 'voice entry')
+              ),
+              React.createElement('button', { onClick: () => setShowLanguageModal(true), className: 'shrink-0 rounded-full bg-black border-[#ffa06b] border-2 border-solid flex px-3 py-1.5 items-center gap-1.5' },
+                React.createElement('span', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#f6dfdd] text-[11px]' }, 'HIN'),
+                React.createElement('svg', { className: 'size-3 text-[#ffa06b]', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+                  React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 2, d: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4' })
+                ),
+                React.createElement('span', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#f6dfdd] text-[11px]' }, 'ENG')
               )
             ),
             React.createElement('div', { className: 'rounded-[22px] bg-black border-[#f049cf] border-2 border-solid flex p-6 flex-col justify-center items-center gap-2' },
@@ -519,11 +653,15 @@ function TranslatorScreen({ onNavigate, showSettings, setShowSettings }) {
               ),
               React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] text-center lowercase text-[#b8a8a7] text-xs leading-4' }, 'tap to record or upload audio')
             ),
-            React.createElement('button', { onClick: () => setShowRecordingModal(true), className: '[font-family:\'Geist_Mono\',monospace] font-normal text-center align-baseline uppercase rounded-full bg-[#f049cf] text-black text-sm leading-5 tracking-normal h-11' }, 'TRANSLATE')
+            React.createElement('button', { onClick: handleTranslate, className: '[font-family:\'Geist_Mono\',monospace] font-normal text-center align-baseline uppercase rounded-full bg-[#f049cf] text-black text-sm leading-5 tracking-normal h-11' }, 'TRANSLATE')
           )
         )
       )
     ),
+    showLanguageModal && React.createElement(LanguageToggleModal, { 
+      onClose: () => setShowLanguageModal(false), 
+      onContinue: () => setShowLanguageModal(false) 
+    }),
     showTypingModal && React.createElement('div', { className: 'fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4' },
       React.createElement('div', { className: 'rounded-[28px] bg-black border-[#f049cf] border-2 border-solid p-5 flex flex-col gap-3 max-w-sm w-full' },
         React.createElement('div', { className: 'flex justify-between items-center' },
@@ -537,7 +675,7 @@ function TranslatorScreen({ onNavigate, showSettings, setShowSettings }) {
           )
         ),
         React.createElement('textarea', { placeholder: '', className: '[font-family:\'Geist_Mono\',monospace] min-h-[112px] resize-none outline-none lowercase rounded-[18px] bg-black text-[#f6dfdd] text-lg leading-6 border-[#f049cf] border-2 border-solid p-4 w-full', defaultValue: 'वो एहसास जब कोई पुरानी जगह देखकर यादें ताज़ा हो जाएं।' }),
-        React.createElement('button', { onClick: () => setShowTypingModal(false), className: '[font-family:\'Geist_Mono\',monospace] font-normal text-center align-baseline uppercase rounded-full bg-[#f049cf] text-black text-sm leading-5 tracking-normal h-11' }, 'TRANSLATE')
+        React.createElement('button', { onClick: handleTypingTranslate, className: '[font-family:\'Geist_Mono\',monospace] font-normal text-center align-baseline uppercase rounded-full bg-[#f049cf] text-black text-sm leading-5 tracking-normal h-11' }, 'TRANSLATE')
       )
     ),
     showRecordingModal && React.createElement('div', { className: 'fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4' },
@@ -571,7 +709,35 @@ function TranslatorScreen({ onNavigate, showSettings, setShowSettings }) {
               React.createElement('div', { className: 'rounded-full bg-[#f049cf]/70 w-[3px] h-5' }),
               React.createElement('div', { className: 'rounded-full bg-[#f049cf]/70 w-[3px] h-2' })
             ),
-            React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] shrink-0 text-[#f6dfdd] text-sm leading-5' }, '0:12')
+            React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] shrink-0 text-[#f6dfdd] text-sm leading-5' }, '0:18')
+          )
+        ),
+        React.createElement('div', { className: 'rounded-[18px] bg-black border-[#f049cf] border-2 border-solid p-3' },
+          React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] lowercase text-[#f6dfdd] text-sm leading-5' }, 'नमस्ते, मैं आज बहुत अच्छा महसूस कर रहा हूँ')
+        ),
+        React.createElement('div', { className: 'border-[#f049cf] border-t-2 border-r-0 border-b-0 border-l-0 border-dotted w-full h-px' }),
+        React.createElement('div', { className: 'rounded-[18px] bg-black border-[#f049cf] border-2 border-solid p-3' },
+          React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#ffa06b] text-xs leading-4 mb-2' }, 'TRANSLATED TEXT'),
+          React.createElement('p', { className: '[font-family:\'Geist_Mono\',monospace] lowercase text-[#f6dfdd] text-sm leading-5' }, 'Hello, I am feeling very good today')
+        ),
+        React.createElement('div', { className: 'border-[#f049cf] border-t-2 border-r-0 border-b-0 border-l-0 border-dotted w-full h-px' }),
+        React.createElement('div', { className: 'rounded-[18px] bg-black border-[#f049cf] border-2 border-solid p-3' },
+          React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#ffa06b] text-xs leading-4 mb-2' }, 'HEAR THE TRANSLATION'),
+          React.createElement('div', { className: 'flex items-center gap-3' },
+            React.createElement('div', { className: 'size-10 shrink-0 rounded-full bg-black border-[#f049cf] border-2 border-solid flex justify-center items-center' },
+              React.createElement('svg', { className: 'size-4 fill-[#f049cf] text-[#f049cf]', fill: 'currentColor', viewBox: '0 0 24 24' },
+                React.createElement('path', { d: 'M8 5v14l11-7z' })
+              )
+            ),
+            React.createElement('div', { className: 'flex justify-center items-center flex-1 gap-[3px] h-8' },
+              React.createElement('div', { className: 'rounded-full bg-[#f049cf]/70 w-[3px] h-3' }),
+              React.createElement('div', { className: 'rounded-full bg-[#f049cf]/70 w-[3px] h-5' }),
+              React.createElement('div', { className: 'rounded-full bg-[#f049cf]/70 w-[3px] h-4' }),
+              React.createElement('div', { className: 'rounded-full bg-[#f049cf]/70 w-[3px] h-6' }),
+              React.createElement('div', { className: 'rounded-full bg-[#f049cf]/70 w-[3px] h-3' }),
+              React.createElement('div', { className: 'rounded-full bg-[#f049cf]/70 w-[3px] h-5' })
+            ),
+            React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] shrink-0 text-[#f6dfdd] text-sm leading-5' }, '0:16')
           )
         ),
         React.createElement('button', { onClick: () => setShowRecordingModal(false), className: '[font-family:\'Geist_Mono\',monospace] font-normal text-center align-baseline uppercase rounded-full bg-[#f049cf] text-black text-sm leading-5 tracking-normal h-11' }, 'TRANSLATE'),
