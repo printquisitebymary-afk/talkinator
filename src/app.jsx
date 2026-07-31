@@ -245,9 +245,34 @@ function ResultsScreen({ onNavigate, showSettings, setShowSettings, onSaveWord }
     setCurrentSwipe(null);
   };
 
+  const handleTouchStart = (e, id) => {
+    const touch = e.touches[0];
+    setDragStart({ x: touch.clientX, y: touch.clientY, id });
+    setCurrentSwipe(null);
+  };
+
   const handleMouseMove = (e) => {
     if (dragStart) {
       const offsetX = e.clientX - dragStart.x;
+      setDragOffset({ x: offsetX, y: 0 });
+      
+      // Show background when dragged halfway (50% of card width)
+      if (Math.abs(offsetX) > 75 && !currentSwipe) {
+        if (offsetX > 0) {
+          setCurrentSwipe({ id: dragStart.id, type: 'lost' });
+        } else {
+          setCurrentSwipe({ id: dragStart.id, type: 'found' });
+        }
+      } else if (Math.abs(offsetX) < 50 && currentSwipe?.id === dragStart.id) {
+        setCurrentSwipe(null);
+      }
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (dragStart) {
+      const touch = e.touches[0];
+      const offsetX = touch.clientX - dragStart.x;
       setDragOffset({ x: offsetX, y: 0 });
       
       // Show background when dragged halfway (50% of card width)
@@ -306,6 +331,10 @@ function ResultsScreen({ onNavigate, showSettings, setShowSettings, onSaveWord }
     }
   };
 
+  const handleTouchEnd = () => {
+    handleMouseUp();
+  };
+
   const toggleSave = (id) => {
     setSuggestions(suggestions.map(s => s.id === id ? { ...s, saved: !s.saved } : s));
     if (!suggestions.find(s => s.id === id)?.saved) {
@@ -338,11 +367,14 @@ function ResultsScreen({ onNavigate, showSettings, setShowSettings, onSaveWord }
             
             return React.createElement('div', { 
               key: suggestion.id, 
-              className: 'relative cursor-pointer',
+              className: 'relative cursor-pointer touch-none',
               onMouseDown: (e) => handleMouseDown(e, suggestion.id),
               onMouseMove: handleMouseMove,
               onMouseUp: handleMouseUp,
-              onMouseLeave: handleMouseUp
+              onMouseLeave: handleMouseUp,
+              onTouchStart: (e) => handleTouchStart(e, suggestion.id),
+              onTouchMove: handleTouchMove,
+              onTouchEnd: handleTouchEnd
             },
               // Fixed background layer (FOUND/LOST) - stays in place behind card
               React.createElement('div', { 
@@ -541,12 +573,16 @@ function TranslatorScreen({ onNavigate, showSettings, setShowSettings }) {
   const [extractedText, setExtractedText] = useState('');
   const [inputText, setInputText] = useState('');
   const [showTranslation, setShowTranslation] = useState(false);
+  const [fileProcessed, setFileProcessed] = useState(false);
+  const [voiceProcessed, setVoiceProcessed] = useState(false);
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
       setUploadedFile(file);
-      setExtractedText('नमस्ते, यह दस्तावेज़ आपकी बैठक के लिए महत्वपूर्ण जानकारी रखता है।');
+      setFileProcessed(false);
+      setExtractedText('');
+      setTranslatedText('');
     }
   };
 
@@ -555,9 +591,22 @@ function TranslatorScreen({ onNavigate, showSettings, setShowSettings }) {
     if (inputText.trim()) {
       setTranslatedText('i hope you will like my app.');
       setShowTranslation(true);
-    } else if (extractedText) {
+    } else if (uploadedFile && !fileProcessed) {
+      setExtractedText('नमस्ते, यह दस्तावेज़ आपकी बैठक के लिए महत्वपूर्ण जानकारी रखता है।');
       setTranslatedText('hello, this document contains important information for your meeting.');
+      setFileProcessed(true);
+    } else if (voiceProcessed) {
+      // Reset voice processing
+      setVoiceProcessed(false);
+      setExtractedText('');
+      setTranslatedText('');
     }
+  };
+
+  const handleVoiceTranslate = () => {
+    setExtractedText('नमस्ते, मैं आज बहुत अच्छा महसूस कर रहा हूँ');
+    setTranslatedText('Hello, I am feeling very good today');
+    setVoiceProcessed(true);
   };
 
   const handleTypingTranslate = () => {
@@ -597,11 +646,11 @@ function TranslatorScreen({ onNavigate, showSettings, setShowSettings }) {
               onChange: (e) => setInputText(e.target.value),
               className: '[font-family:\'Geist_Mono\',monospace] min-h-20 resize-none outline-none lowercase rounded-[18px] bg-black text-[#f6dfdd] text-sm leading-5 border-[#f049cf] border-2 border-solid p-3 w-full' }
             ),
+            showTranslation && React.createElement('div', { className: 'rounded-[18px] bg-black border-[#f049cf] border-2 border-solid p-3' },
+              React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#ffa06b] text-xs leading-4 mb-2' }, 'TRANSLATED TEXT'),
+              React.createElement('p', { className: '[font-family:\'Geist_Mono\',monospace] lowercase text-[#f6dfdd] text-sm leading-5' }, translatedText)
+            ),
             React.createElement('button', { onClick: handleTranslate, className: '[font-family:\'Geist_Mono\',monospace] font-normal text-center align-baseline uppercase rounded-full bg-[#f049cf] text-black text-sm leading-5 tracking-normal h-11' }, 'TRANSLATE')
-          ),
-          translatedText && React.createElement('div', { className: 'rounded-[28px] bg-black border-[#f049cf] border-2 border-solid flex p-5 flex-col gap-3' },
-            React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#ffa06b] text-xs leading-4' }, 'TRANSLATED TEXT'),
-            React.createElement('p', { className: '[font-family:\'Geist_Mono\',monospace] lowercase text-[#f6dfdd] text-base leading-6' }, translatedText)
           ),
           React.createElement('div', { className: 'rounded-[28px] bg-black border-[#f049cf] border-2 border-solid flex p-5 flex-col gap-3' },
             React.createElement('div', { className: 'flex flex-row justify-between items-start gap-2' },
@@ -634,17 +683,21 @@ function TranslatorScreen({ onNavigate, showSettings, setShowSettings }) {
                 React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] text-[#f6dfdd] text-sm' }, uploadedFile.name),
                 React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] text-[#b8a8a7] text-xs' }, '2.4 mb uploaded')
               ),
-              React.createElement('button', { onClick: () => setUploadedFile(null), className: 'size-8 rounded-full bg-black border-[#f049cf] border-2 border-solid flex justify-center items-center' },
+              React.createElement('button', { onClick: () => { setUploadedFile(null); setFileProcessed(false); }, className: 'size-8 rounded-full bg-black border-[#f049cf] border-2 border-solid flex justify-center items-center' },
                 React.createElement('svg', { className: 'size-4 text-[#ffa06b]', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
                   React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 2, d: 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' })
                 )
               )
             ),
-            extractedText && React.createElement('div', { className: 'rounded-[18px] bg-black border-[#f049cf] border-2 border-solid p-3' },
+            fileProcessed && extractedText && React.createElement('div', { className: 'rounded-[18px] bg-black border-[#f049cf] border-2 border-solid p-3' },
               React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#ffa06b] text-xs leading-4 mb-2' }, 'EXTRACTED TEXT'),
               React.createElement('p', { className: '[font-family:\'Geist_Mono\',monospace] lowercase text-[#f6dfdd] text-sm leading-5' }, extractedText)
             ),
-            React.createElement('button', { onClick: handleTranslate, className: '[font-family:\'Geist_Mono\',monospace] font-normal text-center align-baseline uppercase rounded-full bg-[#f049cf] text-black text-sm leading-5 tracking-normal h-11 w-full' }, 'EXTRACT & TRANSLATE')
+            fileProcessed && translatedText && React.createElement('div', { className: 'rounded-[18px] bg-black border-[#f049cf] border-2 border-solid p-3' },
+              React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#ffa06b] text-xs leading-4 mb-2' }, 'TRANSLATED TEXT'),
+              React.createElement('p', { className: '[font-family:\'Geist_Mono\',monospace] lowercase text-[#f6dfdd] text-sm leading-5' }, translatedText)
+            ),
+            React.createElement('button', { onClick: handleTranslate, className: '[font-family:\'Geist_Mono\',monospace] font-normal text-center align-baseline uppercase rounded-full bg-[#f049cf] text-black text-sm leading-5 tracking-normal h-11 w-full' }, uploadedFile && !fileProcessed ? 'EXTRACT & TRANSLATE' : 'TRANSLATE AGAIN')
           ),
           React.createElement('div', { className: 'rounded-[28px] bg-black border-[#f049cf] border-2 border-solid flex p-5 flex-col gap-3' },
             React.createElement('div', { className: 'flex flex-row justify-between items-start gap-2' },
@@ -669,7 +722,14 @@ function TranslatorScreen({ onNavigate, showSettings, setShowSettings }) {
               ),
               React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] text-center lowercase text-[#b8a8a7] text-xs leading-4' }, 'tap to record or upload audio')
             ),
-            React.createElement('button', { onClick: handleTranslate, className: '[font-family:\'Geist_Mono\',monospace] font-normal text-center align-baseline uppercase rounded-full bg-[#f049cf] text-black text-sm leading-5 tracking-normal h-11' }, 'TRANSLATE')
+            !voiceProcessed ? (
+              React.createElement('button', { onClick: handleVoiceTranslate, className: '[font-family:\'Geist_Mono\',monospace] font-normal text-center align-baseline uppercase rounded-full bg-[#f049cf] text-black text-sm leading-5 tracking-normal h-11' }, 'TRANSLATE')
+            ) : (
+              React.createElement('div', { className: 'rounded-[18px] bg-black border-[#f049cf] border-2 border-solid p-3' },
+                React.createElement('div', { className: '[font-family:\'Geist_Mono\',monospace] uppercase text-[#ffa06b] text-xs leading-4 mb-2' }, 'TRANSLATED TEXT'),
+                React.createElement('p', { className: '[font-family:\'Geist_Mono\',monospace] lowercase text-[#f6dfdd] text-sm leading-5' }, translatedText)
+              )
+            )
           )
         )
       )
