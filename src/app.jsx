@@ -133,9 +133,14 @@ function SearchScreen({ onNavigate, showSettings, setShowSettings }) {
                   React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 2, d: 'M20 12H4' })
                 )
               ),
-              React.createElement('div', { className: 'flex justify-center items-end flex-1 gap-1.5' },
+              React.createElement('div', { className: 'flex justify-center items-end flex-1', style: { gap: clues.length > 6 ? '2px' : clues.length > 4 ? '4px' : '6px' } },
                 clues.map((clue, index) =>
-                  React.createElement('div', { key: index, className: 'flex flex-col items-center gap-1 cursor-pointer', onClick: () => setSelectedClueIndex(index) },
+                  React.createElement('div', { 
+                    key: index, 
+                    className: 'flex flex-col items-center cursor-pointer', 
+                    onClick: () => setSelectedClueIndex(index),
+                    style: { gap: clues.length > 6 ? '1px' : '2px' }
+                  },
                     React.createElement('input', { 
                       type: 'text', 
                       maxLength: 1,
@@ -145,10 +150,21 @@ function SearchScreen({ onNavigate, showSettings, setShowSettings }) {
                         newClues[index] = e.target.value.slice(-1);
                         setClues(newClues);
                       },
-                      className: 'w-4 h-4 bg-transparent border-none outline-none text-center [font-family:\'Geist_Mono\',monospace] text-[#ffa06b] text-sm',
+                      className: 'bg-transparent border-none outline-none text-center [font-family:\'Geist_Mono\',monospace] text-[#ffa06b]',
+                      style: { 
+                        width: clues.length > 6 ? '12px' : clues.length > 4 ? '14px' : '16px',
+                        height: clues.length > 6 ? '12px' : clues.length > 4 ? '14px' : '16px',
+                        fontSize: clues.length > 6 ? '10px' : clues.length > 4 ? '11px' : '12px'
+                      },
                       placeholder: '_'
                     }),
-                    React.createElement('div', { className: 'w-[5mm] h-0.5 bg-[#f6dfdd]' })
+                    React.createElement('div', { 
+                      className: 'bg-[#f6dfdd]',
+                      style: { 
+                        width: clues.length > 6 ? '4px' : clues.length > 4 ? '5px' : '5mm',
+                        height: '1px'
+                      }
+                    })
                   )
                 )
               ),
